@@ -1,11 +1,12 @@
 # !/usr/bin/env python
 from data_preprocess import DataProcess
 from nerual_network import NNModel
+from decision_tree import RandomForests
 
 
 if __name__ == '__main__':
-    stock_data = DataProcess()
-    x_train, x_test, y_train, y_test = stock_data.data_select()
+    # stock_data = DataProcess()
+    # x_train, x_test, y_train, y_test = stock_data.data_select()
     # # train nerual networt model
     # model = NNModel(epoch=300)
     # nn_model = model.neural_network_model(x_train, y_train, x_test, y_test)
@@ -14,3 +15,7 @@ if __name__ == '__main__':
     # print(acc[1])
     # if acc > 0.765:
     #     nn_model.save('nn_model.h5')
+    stock_data = DataProcess()
+    x_train, x_test, y_train, y_test = stock_data.data_select(one_hot=False)
+    rf = RandomForests()
+    rf.train_model(x_train, x_test, y_train, y_test)

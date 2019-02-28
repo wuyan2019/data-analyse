@@ -4,7 +4,7 @@ from tensorflow.keras import layers
 
 
 class NNModel:
-
+    # init部分用来调整参数
     def __init__(self, learning_rate=0.001, momentum=0.9, batch_size=64, epoch=50):
         self.learning_rate = learning_rate
         self.momentum = momentum
