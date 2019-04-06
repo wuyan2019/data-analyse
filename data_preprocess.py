@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import Imputer
 # from keras.utils import to_categorical
 
 
@@ -19,6 +20,7 @@ class DataProcess:
         # 选择训练数据x
         self.x = self.df[['ths_vol_m_stock', 'ths_avg_turnover_rate_m_stock', 'ths_avg_price_m_stock',
                           'ths_win_days_m_stock', 'ths_swingm_stock', 'ths_relative_chg_ratio_m_stock']]
+        self.x['ths_win_days_m_stock'] = self.x['ths_win_days_m_stock'].fillna(self.x['ths_win_days_m_stock'].median)
 
     def data_select(self, one_hot=True):
         # 数据归一化
