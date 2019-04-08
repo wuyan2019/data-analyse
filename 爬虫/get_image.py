@@ -20,7 +20,8 @@ def get_onepage_urls(onepageurl):
         pic_urls = []
         fanye_url = ''
         return pic_urls, fanye_url
-    pic_urls = re.findall('"objURL":"(.*?)",', html, re.S)
+    # pic_urls = re.findall('"objURL":"(.*?)",', html, re.S)
+    pic_urls = re.findall('https:')
     fanye_urls = re.findall(re.compile(r'<a href="(.*)" class="n">下一页</a>'), html, flags=0)
     fanye_url = 'http://image.baidu.com' + fanye_urls[0] if fanye_urls else ''
     return pic_urls, fanye_url
@@ -61,6 +62,7 @@ if __name__ == '__main__':
         all_pic_urls.extend(onepage_urls)
 
     executor = ThreadPoolExecutor(max_workers=16)
-    future_task = [executor.submit(down_pic, list(set(all_pic_urls)))]
+    all_urls = list(set(all_pic_urls))
+    future_task = [executor.submit(down_pic, url) for url in all_urls]
     wait(future_task, return_when=ALL_COMPLETED)
-    print(len(list(set(all_pic_urls))))
+    print(len(all_urls))

@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -97,11 +95,6 @@ class RandomForests:
         print('最小叶结点样本：%d' % best_min_samples_leaf)
         print('最小样本分割： %d' % best_min_samples_split)
         print('最大特征: %.2f' % best_max_features)
-
-
-
-
-
 
         # 训练随机森林模型
         model = RandomForestClassifier(n_estimators=best_n_estimators, oob_score=True,
