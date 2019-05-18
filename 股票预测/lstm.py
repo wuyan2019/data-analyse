@@ -1,5 +1,11 @@
+import math
 import torch
+import torch as th
+import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor as T
+from torch.nn import Parameter as P
+from torch.autograd import Variable as V
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -20,43 +26,81 @@ df_log = pd.DataFrame(df_log)
 df_log.head()
 
 
-class Model:
-    def __init__(
-        self,
-        learning_rate,
-        num_layers,
-        size,
-        size_layer,
-        output_size,
-        forget_bias = 0.1,
-    ):
-        def lstm_cell(size_layer):
-            return torch.nn.LSTMCell(size_layer, state_is_tuple=False)
+class LSTM(nn.Module):
+    """
+    An implementation of Hochreiter & Schmidhuber:
+    'Long-Short Term Memory'
+    http://www.bioinf.jku.at/publications/older/2604.pdf
+    Special args:
 
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    dropout_method: one of
+            * pytorch: default dropout implementation
+            * gal: uses GalLSTM's dropout
+            * moon: uses MoonLSTM's dropout
+            * semeniuta: uses SemeniutaLSTM's dropout
+    """
 
-        rnn_cells = tf.nn.rnn_cell.MultiRNNCell(
-            [lstm_cell(size_layer) for _ in range(num_layers)]
-        )
-        self.X = tf.placeholder(tf.float32, (None, None, size))
-        self.Y = tf.placeholder(tf.float32, (None, output_size))
-        drop = tf.contrib.rnn.DropoutWrapper(
-            rnn_cells, output_keep_prob = forget_bias
-        )
-        self.hidden_layer = tf.placeholder(
-            tf.float32, (None, num_layers * 2 * size_layer)
-        )
-        self.outputs, self.last_state = tf.nn.dynamic_rnn(
-            drop, self.X, initial_state = self.hidden_layer, dtype = tf.float32
-        )
-        self.logits = tf.layers.dense(self.outputs[-1], output_size)
-        # self.cost = tf.reduce_mean(tf.square(self.Y - self.logits))
+    def __init__(self, input_size, hidden_size, bias=True, dropout=0.0, dropout_method='pytorch'):
+        super(LSTM, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.bias = bias
+        self.dropout = dropout
+        self.i2h = nn.Linear(input_size, 4 * hidden_size, bias=bias)
+        self.h2h = nn.Linear(hidden_size, 4 * hidden_size, bias=bias)
+        self.reset_parameters()
+        assert (dropout_method.lower() in ['pytorch', 'gal', 'moon', 'semeniuta'])
+        self.dropout_method = dropout_method
 
-        self.loss_fn = torch.nn.MSELoss(reduction='sum')
-        self.optimizer = torch.optim.Adam(self.loss_fn, lr=learning_rate)
-        # self.optimizer = tf.train.AdamOptimizer(learning_rate).minimize(
-        #     self.cost
-        # )
+    def sample_mask(self):
+        keep = 1.0 - self.dropout
+        self.mask = V(th.bernoulli(T(1, self.hidden_size).fill_(keep)))
+
+    def reset_parameters(self):
+        std = 1.0 / math.sqrt(self.hidden_size)
+        for w in self.parameters():
+            w.data.uniform_(-std, std)
+
+    def forward(self, x, hidden):
+        do_dropout = self.training and self.dropout > 0.0
+        h, c = hidden
+        h = h.view(h.size(1), -1)
+        c = c.view(c.size(1), -1)
+        x = x.view(x.size(1), -1)
+
+        # Linear mappings
+        preact = self.i2h(x) + self.h2h(h)
+
+        # activations
+        gates = preact[:, :3 * self.hidden_size].sigmoid()
+        g_t = preact[:, 3 * self.hidden_size:].tanh()
+        i_t = gates[:, :self.hidden_size]
+        f_t = gates[:, self.hidden_size:2 * self.hidden_size]
+        o_t = gates[:, -self.hidden_size:]
+
+        # cell computations
+        if do_dropout and self.dropout_method == 'semeniuta':
+            g_t = F.dropout(g_t, p=self.dropout, training=self.training)
+
+        c_t = th.mul(c, f_t) + th.mul(i_t, g_t)
+
+        if do_dropout and self.dropout_method == 'moon':
+            c_t.data.set_(th.mul(c_t, self.mask).data)
+            c_t.data *= 1.0 / (1.0 - self.dropout)
+
+        h_t = th.mul(o_t, c_t.tanh())
+
+        # Reshape for compatibility
+        if do_dropout:
+            if self.dropout_method == 'pytorch':
+                F.dropout(h_t, p=self.dropout, training=self.training, inplace=True)
+            if self.dropout_method == 'gal':
+                h_t.data.set_(th.mul(h_t, self.mask).data)
+                h_t.data *= 1.0 / (1.0 - self.dropout)
+
+        h_t = h_t.view(1, h_t.size(0), -1)
+        c_t = c_t.view(1, c_t.size(0), -1)
+        return h_t, (h_t, c_t)
 
 
 class ModelClass(torch.nn.Module):
@@ -73,58 +117,76 @@ class ModelClass(torch.nn.Module):
         return x
 
 
-class RNN(torch.nn.Module):
+class RNN(nn.Module):
     def __init__(self):
-        super().__init__()
-        self.rnn=torch.nn.LSTM(
-            input_size=28,
-            hidden_size=64,
-            num_layers=1,
-            batch_first=True
+        super(RNN, self).__init__()
+
+        self.rnn = nn.LSTM(     # LSTM 效果要比 nn.RNN() 好多了
+            input_size=28,      # 图片每行的数据像素点
+            hidden_size=64,     # rnn hidden unit
+            num_layers=1,       # 有几层 RNN layers
+            batch_first=True,   # input & output 会是以 batch size 为第一维度的特征集 e.g. (batch, time_step, input_size)
         )
-        self.out=torch.nn.Linear(in_features=64,out_features=10)
 
-    def forward(self,x):
-        # 一下关于shape的注释只针对单项
-        # output: [batch_size, time_step, hidden_size]
-        # h_n: [num_layers,batch_size, hidden_size] # 虽然LSTM的batch_first为True,但是h_n/c_n的第一维还是num_layers
-        # c_n: 同h_n
-        output,(h_n,c_n)=self.rnn(x)
-        print(output.size())
-        # output_in_last_timestep=output[:,-1,:] # 也是可以的
-        output_in_last_timestep=h_n[-1,:,:]
-        # print(output_in_last_timestep.equal(output[:,-1,:])) #ture
-        x=self.out(output_in_last_timestep)
-        return x
+        self.out = nn.Linear(64, 10)    # 输出层
+
+    def forward(self, x):
+        # x shape (batch, time_step, input_size)
+        # r_out shape (batch, time_step, output_size)
+        # h_n shape (n_layers, batch, hidden_size)   LSTM 有两个 hidden states, h_n 是分线, h_c 是主线
+        # h_c shape (n_layers, batch, hidden_size)
+        r_out, (h_n, h_c) = self.rnn(x, None)   # None 表示 hidden state 会用全0的 state
+
+        # 选取最后一个时间点的 r_out 输出
+        # 这里 r_out[:, -1, :] 的值也是 h_n 的值
+        out = self.out(r_out[:, -1, :])
+        return out
 
 
-# Initialize model
-net = RNN()
+rnn = RNN()
+print(rnn)
 
-# Initialize optimizer
-optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-loss_F = torch.nn.MSELoss()
+optimizer = torch.optim.Adam(rnn.parameters(), lr=LR)   # optimize all parameters
+loss_func = nn.CrossEntropyLoss()   # the target label is not one-hotted
 
-num_layers = 1
-size_layer = 128
-timestamp = 5
-epoch = 500
-dropout_rate = 0.7
-future_day = 50
+# training and testing
+for epoch in range(EPOCH):
+    for step, (x, b_y) in enumerate(train_loader):   # gives batch data
+        b_x = x.view(-1, 28, 28)   # reshape x to (batch, time_step, input_size)
 
-for step, input_data in enumerate(df['Close']):
-    x, y = input_data, input_data
+        output = rnn(b_x)               # rnn output
+        loss = loss_func(output, b_y)   # cross entropy loss
+        optimizer.zero_grad()           # clear gradients for this training step
+        loss.backward()                 # backpropagation, compute gradients
+        optimizer.step()                # apply gradients
 
-    pred=net(x)
-    break;
-    loss=loss_F(pred,y) # 计算loss
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    if step%50==49: # 每50步，计算精度
-        with torch.no_grad():
-            test_pred=net(test_x)
-            prob=torch.nn.functional.softmax(test_pred,dim=1)
-            pred_cls=torch.argmax(prob,dim=1)
-            acc=(pred_cls==test_y).sum().numpy()/pred_cls.size()[0]
-            print(f"{epoch}-{step}: accuracy:{acc}")
+# # Initialize model
+# net = RNN()
+#
+# # Initialize optimizer
+# optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+# loss_F = torch.nn.MSELoss()
+#
+# num_layers = 1
+# size_layer = 128
+# timestamp = 5
+# epoch = 500
+# dropout_rate = 0.7
+# future_day = 50
+#
+# for step, input_data in enumerate(df['Close']):
+#     x, y = input_data, input_data
+#
+#     pred = net(x)
+#     break;
+#     loss=loss_F(pred,y) # 计算loss
+#     optimizer.zero_grad()
+#     loss.backward()
+#     optimizer.step()
+#     if step%50==49: # 每50步，计算精度
+#         with torch.no_grad():
+#             test_pred=net(test_x)
+#             prob=torch.nn.functional.softmax(test_pred,dim=1)
+#             pred_cls=torch.argmax(prob,dim=1)
+#             acc=(pred_cls==test_y).sum().numpy()/pred_cls.size()[0]
+#             print(f"{epoch}-{step}: accuracy:{acc}")
