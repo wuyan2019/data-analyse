@@ -25,6 +25,43 @@ df_log = minmax.transform(df.iloc[:, 1:].astype('float32'))
 df_log = pd.DataFrame(df_log)
 df_log.head()
 
+high_prices = df.loc[:, 'High'].as_matrix()
+low_prices = df.loc[:, 'Low'].as_matrix()
+mid_prices = (high_prices+low_prices)/2.0
+
+train_data = mid_prices[:200]
+test_data = mid_prices[200:]
+
+
+# EMA = 0.0
+# gamma = 0.1
+# for ti in range(len(df)):
+#  EMA = gamma*train_data[ti] + (1-gamma)*EMA
+#  train_data[ti] = EMA
+#
+# all_mid_data = np.concatenate([train_data, test_data], axis=0)
+
+window_size = 100
+N = train_data.size
+
+run_avg_predictions = []
+run_avg_x = []
+
+mse_errors = []
+
+running_mean = 0.0
+run_avg_predictions.append(running_mean)
+
+decay = 0.5
+
+for pred_idx in range(1, N):
+    running_mean = running_mean * decay + (1.0 - decay) * train_data[pred_idx - 1]
+    run_avg_predictions.append(running_mean)
+    mse_errors.append((run_avg_predictions[-1] - train_data[pred_idx]) ** 2)
+    run_avg_x.append(date)
+
+print('MSE error for EMA averaging: %.5f' % (0.5 * np.mean(mse_errors)))
+
 
 # class LSTM(nn.Module):
 #     """
