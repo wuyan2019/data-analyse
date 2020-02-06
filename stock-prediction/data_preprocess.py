@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import Imputer
-# from keras.utils import to_categorical
 
 
 # series 数据的归一化处理

@@ -13,7 +13,7 @@ def SeriesGen(N):
 
 
 def trainDataGen(seq, k):
-    dat = list()
+    dat = []
     L = len(seq)
     for i in range(L - k - 1):
         indat = seq[i:i + k]

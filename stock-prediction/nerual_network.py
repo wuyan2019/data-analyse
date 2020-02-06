@@ -1,21 +1,10 @@
 # !/usr/bin/env python
-# import tensorflow as tf
-# from tensorflow.keras import layers
 from keras import Sequential
 from keras.optimizers import RMSprop, Adam, SGD
 from keras import layers
 from sklearn.model_selection import GridSearchCV
 import numpy as np
 from keras.wrappers.scikit_learn import KerasClassifier
-
-
-# class NNModel:
-#     # init部分用来调整参数
-#     def __init__(self, learning_rate=0.001, momentum=0.9, batch_size=64, epoch=50):
-#         self.learning_rate = learning_rate
-#         self.momentum = momentum
-#         self.batch_size = batch_size
-#         self.epoch = epoch
 
 
 def neural_network_model(lr=0.001, momentum=0.9):

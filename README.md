@@ -1,4 +1,26 @@
 # data-analyse
+## 目录
+├── README.md   
+├── management-after-loan  
+│   ├── DebtCollectionModel.py  
+│   ├── prosperLoanData_chargedoff.csv  
+│   └── 贷后管理&风险模型纲要.ipynb  
+├── shujufenxi.py  
+├── stock-prediction  
+│   ├── GOOG-year.csv  
+│   ├── data_preprocess.py  
+│   ├── decision_tree.py  
+│   ├── lstm.py  
+│   ├── main.py  
+│   ├── nerual_network.py  
+│   ├── series_to_supervised.py  
+│   └── torch_lstm.py  
+└── web-crawler  
+    ├── get_image.py  
+    ├── github.py  
+    ├── lagou.py  
+    ├── leetcode.py  
+    └── news_baidu.py   
 ## 股票分析
 通过搭建随机森林和神经网络模型对股票的上涨下跌进行预测，
 随机森林模型还使用网格搜索进行优化。基于pytorch的时间序列模型也在逐步添加中。

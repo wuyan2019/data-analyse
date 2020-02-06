@@ -1,0 +1,11 @@
+num_layers = 2
+hidden_size = 64
+timestamp = 5
+num_epochs = 100
+future_day = 5
+batch_size = 15
+output_size = 1
+split_size = 200
+model_train = False
+data_path = 'dataset/GOOG-year.csv'
+model_path = 'checkpoints/model.pth'
