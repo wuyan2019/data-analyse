@@ -3,11 +3,11 @@ import time
 import seaborn as sns
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
+from sklearn.preprocessing import MinMaxScaler
 
 from model import LSTMSeq2Seq
 from config import *
@@ -20,8 +20,8 @@ def generate(data):
     inputs = []
     outputs = []
     for i in range(len(data) - timestamp):
-        inputs.append(data[i:i + timestamp])
-        outputs.append(data[i + timestamp])
+        inputs.append(list(data[i:i + timestamp, 4:9]))
+        outputs.append((data[i + timestamp, 5] - data[i + timestamp - 1, 5]) / data[i + timestamp - 1, 5])
     print('Number of seqs: {}'.format(len(inputs)))
     dataset = TensorDataset(torch.tensor(inputs, dtype=torch.float), torch.tensor(outputs))
     return dataset
@@ -46,7 +46,7 @@ def train(x_train):
     for epoch in bar:  # Loop over the dataset multiple times
         train_loss = 0
         for step, (seq, output_data) in enumerate(dataloader):
-            seq = seq.view(-1, 1, timestamp)
+            seq = seq.view(-1, seq.shape[-1], timestamp)
             output_pre = model(seq)
             loss = criterion(output_pre.view(-1, 1), output_data)
             # Backward and optimize
@@ -74,28 +74,33 @@ def test(x_test):
     model.eval()
     with torch.no_grad():
         for step, (seq, label) in enumerate(dataloader):
-            seq = seq.view(-1, 1, timestamp)
+            seq = seq.view(-1, seq.shape[-1], timestamp)
             predict_out = model(seq)
             predict_seq.append(predict_out)
-    acc = calculate_accuracy(x_test.values[timestamp:], predict_seq)
-    print('Accuracy is {}, test time is {}.'.format(acc, time.time() - start_time))
+    # acc = calculate_accuracy(x_test.values[timestamp:], predict_seq)
+    # print('Accuracy is {}, test time is {}.'.format(acc, time.time() - start_time))
     fig = plt.figure()
-    plt.plot(x_train, label='train')
-    plt.plot(x_test, label='true trend')
-    plt.plot(list(x_test.index)[5:], predict_seq, label='predict trend')
+    # plt.plot(x_train, label='train')
+    plt.plot(x_test.iloc[:, 5], label='true trend')
+    gain = []
+    for i in range(1, len(predict_seq)):
+        gain.append((1 + predict_seq[i]) * x_test.iloc[i + timestamp - 1, 5])
+    plt.plot(list(x_test.index)[timestamp + 1:], gain, label='predict trend')
     fig.legend(loc='upper left')
     plt.show()
 
 
 if __name__ == '__main__':
     df = pd.read_csv(data_path)
+    df = df.loc[:1440]
     # Select the 'close' for the forecast
-    minmax = MinMaxScaler().fit(df.iloc[:, 4:5].astype('float32'))
-    df_log = minmax.transform(df.iloc[:, 4:5].astype('float32'))
-    df_log = pd.DataFrame(df_log)
-    print('Shape', df_log.shape)
-    x_train = df_log[:split_size]
-    x_test = df_log[split_size:]
+    # minmax = MinMaxScaler().fit(df.iloc[:, 5:7].astype('float32'))
+    # df_log = minmax.transform(df.iloc[:, 5:7].astype('float32'))
+    # df_log = pd.DataFrame(df_log)
+    print('Shape', df.shape)
+    split_size = 1200
+    x_train = df[:split_size]
+    x_test = df[split_size:]
     if model_train:
         train(x_train)
     else:

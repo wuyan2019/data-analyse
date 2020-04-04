@@ -1,8 +1,6 @@
 # !/usr/bin/env python
-from data_preprocess import DataProcess
+from utils.data_preprocess import DataProcess
 from nerual_network import parameter_search
-from decision_tree import RandomForests
-
 
 if __name__ == '__main__':
     stock_data = DataProcess()
