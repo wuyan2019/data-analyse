@@ -51,14 +51,18 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.gru = nn.GRU(input_size, hidden_size,
                           num_layers, dropout=0.05, batch_first=True)
-        self.out = nn.Linear(hidden_size, output_size)
+        self.linear1 = nn.Linear(hidden_size, output_size)
+        self.linear2 = nn.Linear(10, 3)
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x, hidden):
-        output, hidden = self.gru(x, hidden)
-        output = self.out(output)
-        output = torch.mean(output, dim=1)
-        return output, hidden
+        gru_out, hidden = self.gru(x, hidden)
+        gru_out = self.linear1(gru_out)
+        linear_out = torch.squeeze(gru_out)
+        output = self.linear2(linear_out)
+        # output = self.softmax(output).argmax(dim=1)
+        # output = torch.mean(output, dim=1)
+        return output
 
 
 class LSTMSeq2Seq(nn.Module):
@@ -69,5 +73,5 @@ class LSTMSeq2Seq(nn.Module):
 
     def forward(self, src):
         encoder_out, hidden = self.encoder(src)
-        decoder_out, hidden = self.decoder(src, hidden)
+        decoder_out = self.decoder(src, hidden)
         return decoder_out
