@@ -14,7 +14,7 @@ class LstmModel(nn.Module):
         # r_out shape (batch, time_step, output_size)
         # h_n shape (n_layers, batch, hidden_size)   LSTM 有两个 hidden states, h_n 是分线, h_c 是主线
         # h_c shape (n_layers, batch, hidden_size)
-        r_out, (h_n, h_c) = self.lstm(x)   # None 表示 hidden state 会用全0的 state
+        r_out, (h_n, h_c) = self.lstm(x)  # None 表示 hidden state 会用全0的 state
 
         # 选取最后一个时间点的 r_out 输出
         # 这里 r_out[:, -1, :] 的值也是 h_n 的值
@@ -51,13 +51,18 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.gru = nn.GRU(input_size, hidden_size,
                           num_layers, dropout=0.05, batch_first=True)
-        self.out = nn.Linear(hidden_size, output_size)
+        self.linear1 = nn.Linear(hidden_size, output_size)
+        self.linear2 = nn.Linear(10, 3)
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x, hidden):
-        output, hidden = self.gru(x, hidden)
-        output = self.out(output)
-        return output, hidden
+        gru_out, hidden = self.gru(x, hidden)
+        gru_out = self.linear1(gru_out)
+        linear_out = torch.squeeze(gru_out)
+        output = self.linear2(linear_out)
+        # output = self.softmax(output).argmax(dim=1)
+        # output = torch.mean(output, dim=1)
+        return output
 
 
 class LSTMSeq2Seq(nn.Module):
@@ -67,7 +72,6 @@ class LSTMSeq2Seq(nn.Module):
         self.decoder = Decoder(input_size, hidden_size, num_layers, output_size)
 
     def forward(self, src):
-
         encoder_out, hidden = self.encoder(src)
-        decoder_out, hidden = self.decoder(src, hidden)
+        decoder_out = self.decoder(src, hidden)
         return decoder_out
