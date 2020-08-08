@@ -47,3 +47,9 @@ class DataProcess:
 
         return train_x, test_x, train_y, test_y
 
+
+
+import jqdatasdk as jq
+jq.auth('13345624026','WY192837465')
+stocks_data = jq.get_all_securities(types=['stock'])
+

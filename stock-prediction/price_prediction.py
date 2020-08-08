@@ -9,8 +9,8 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 
-from model import LSTMSeq2Seq
-from config import *
+from .model import LSTMSeq2Seq
+from .config import *
 
 sns.set()
 torch.manual_seed(1234)
@@ -44,7 +44,6 @@ def calculate_accuracy(real, predict):
         if real[i] == predict[i]:
             true_postive += 1
     return true_postive / total
-
 
 
 def train(x_train):

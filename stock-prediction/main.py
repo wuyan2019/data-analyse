@@ -1,6 +1,6 @@
 # !/usr/bin/env python
-from utils.data_preprocess import DataProcess
-from nerual_network import parameter_search
+from .utils.data_preprocess import DataProcess
+from .nerual_network import parameter_search
 
 if __name__ == '__main__':
     stock_data = DataProcess()
